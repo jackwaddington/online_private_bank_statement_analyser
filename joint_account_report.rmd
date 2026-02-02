@@ -1,0 +1,628 @@
+---
+title: "Joint Account Report"
+subtitle: "Report Generated: `r format(Sys.Date(), '%B %Y')`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(tidyr)
+library(readr)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+library(scales) # currency formating
+
+# Data directories - use environment variables with fallback to sample data
+statements_dir <- Sys.getenv("JOINT_ACCOUNT_STATEMENTS", unset = "sample_data/statements")
+helpers_dir <- Sys.getenv("JOINT_ACCOUNT_HELPERS", unset = "sample_data/helpers")
+```
+
+```{r import-data, include=FALSE}
+# Import bank statements
+csv_files <- list.files(statements_dir, pattern = "\\.csv$", full.names = TRUE)
+file_names <- basename(csv_files)
+
+df_input_list <- lapply(csv_files, fread, sep = ";", dec = ",", colClasses = c("Reference number" = "character"))
+df_merged <- bind_rows(df_input_list, .id = "source_file")
+
+df_merged <- df_merged %>% 
+  mutate(
+    Date = as.Date(`Booking date`, format = "%Y/%m/%d"),
+    Month = format(Date, "%Y-%m"),
+    source_file = file_names[as.integer(source_file)]
+  )
+
+# Import helper files
+minor_groups <- read_csv(file.path(helpers_dir, "minor_groups.csv"), show_col_types = FALSE)
+major_groups <- read_csv(file.path(helpers_dir, "major_groups.csv"), show_col_types = FALSE)
+fallback_patterns <- read_csv(file.path(helpers_dir, "fallback_patterns.csv"), show_col_types = FALSE)
+```
+
+```{r identify-contributors, include=FALSE}
+# Identify the two main contributors
+# Find all income and tag by name found in Title
+df_income_raw <- df_merged %>%
+  filter(Amount > 0) %>%
+  mutate(
+    name_in_title = stringr::str_extract(tolower(Title), "[a-z]+")
+  )
+
+# Get top two names by total contribution
+top_contributors <- df_income_raw %>%
+  group_by(name_in_title) %>%
+  summarise(Total = sum(Amount), .groups = "drop") %>%
+  arrange(desc(Total)) %>%
+  head(2)
+
+person_1 <- stringr::str_to_title(top_contributors$name_in_title[1])
+person_2 <- stringr::str_to_title(top_contributors$name_in_title[2])
+
+# Now tag contributions by name, or assign payee to 'Other'
+df_in <- df_merged %>%
+  filter(Amount > 0) %>%
+  mutate(Payee = case_when(
+    grepl(person_1, Title, ignore.case = TRUE) ~ person_1,
+    grepl(person_2, Title, ignore.case = TRUE) ~ person_2,
+    TRUE ~ "Other"
+  ))
+```
+
+```{r data-quality-checks, include=FALSE}
+# Date range
+date_min <- min(df_merged$Date)
+date_max <- max(df_merged$Date)
+
+# Document and transaction counts
+n_files <- length(csv_files)
+n_transactions <- nrow(df_merged)
+n_transactions_in <- sum(df_merged$Amount > 0)
+n_transactions_out <- sum(df_merged$Amount < 0)
+
+# All months in range
+all_months <- seq.Date(
+  from = as.Date(paste0(format(date_min, "%Y-%m"), "-01")),
+  to = as.Date(paste0(format(date_max, "%Y-%m"), "-01")),
+  by = "month"
+) %>% format("%Y-%m")
+
+months_in_data <- df_merged %>%
+  pull(Month) %>%
+  unique()
+
+missing_months <- setdiff(all_months, months_in_data)
+
+# Find all rows that have duplicates across different source files (same Date, Amount, Title, Reference Number)
+duplicate_groups <- df_merged %>%
+  group_by(Date, Amount, Title, `Reference number`) %>%
+  filter(n() > 1, n_distinct(source_file) > 1) %>%
+  ungroup()
+
+# Create a listing showing each duplicate occurrence (one row per file)
+duplicates_summary <- duplicate_groups %>%
+  select(source_file, Date, Amount, Title, `Reference number`) %>%
+  arrange(Date, source_file)
+
+# Create a collapsed version with files grouped per transaction
+duplicates_collapsed <- duplicate_groups %>%
+  group_by(Date, Amount, Title, `Reference number`) %>%
+  summarise(
+    Files = paste(source_file, collapse = "\n"),
+    .groups = "drop"
+  ) %>%
+  arrange(Date)
+
+# Keep only the surplus occurrences - these are what we remove from the dataset
+duplicates_to_remove <- df_merged %>%
+  group_by(Date, Amount, Title, `Reference number`) %>%
+  filter(n() > 1, n_distinct(source_file) > 1) %>%
+  slice(-1) %>%  # Remove first occurrence from each group, keep the rest
+  ungroup()
+
+n_duplicates_removed <- nrow(duplicates_to_remove)
+n_duplicate_occurrences <- nrow(duplicates_summary)
+
+# Remove duplicates from working dataset (keep first occurrence)
+df_merged <- df_merged %>%
+  distinct(Date, Amount, Title, `Reference number`, .keep_all = TRUE)
+
+# Detect missing weeks
+df_weeks <- df_merged %>%
+  mutate(
+    Year = as.integer(format(Date, "%Y")),
+    Week = as.integer(format(Date, "%V"))
+  ) %>%
+  distinct(Year, Week)
+
+# Generate all weeks in range
+all_weeks <- data.frame(Date = seq.Date(date_min, date_max, by = "day")) %>%
+  mutate(
+    Year = as.integer(format(Date, "%Y")),
+    Week = as.integer(format(Date, "%V"))
+  ) %>%
+  distinct(Year, Week)
+
+missing_weeks <- anti_join(all_weeks, df_weeks, by = c("Year", "Week"))
+
+# Transactions summary by month
+transactions_summary <- df_merged %>%
+  mutate(
+    Year = format(Date, "%Y"),
+    Month_name = format(Date, "%b")
+  ) %>%
+  group_by(Year, Month, Month_name) %>%
+  summarise(
+    `In` = sum(Amount > 0),
+    `Out` = sum(Amount < 0),
+    .groups = "drop"
+  ) %>%
+  arrange(Month) %>%
+  select(Year, Month_name, `In`, `Out`)
+```
+
+```{r calculate-income, include=FALSE}
+# Monthly contributions by person
+df_in_by_month <- df_in %>%
+  filter(Payee != "Other") %>%
+  group_by(Payee, Month) %>%
+  summarise(Total = sum(Amount), .groups = "drop") %>%
+  complete(Payee, Month = all_months, fill = list(Total = 0))
+
+# Cumulative contributions by person
+df_in_cumulative <- df_in_by_month %>%
+  arrange(Month) %>%
+  group_by(Payee) %>%
+  mutate(Cumulative = cumsum(Total))
+
+# Totals and equalisation
+income_totals <- df_in %>%
+  filter(Payee != "Other") %>%
+  group_by(Payee) %>%
+  summarise(Total = sum(Amount))
+
+person_1_total <- income_totals$Total[income_totals$Payee == person_1]
+person_2_total <- income_totals$Total[income_totals$Payee == person_2]
+income_difference <- abs(person_1_total - person_2_total)
+```
+
+```{r calculate-outgoings, include=FALSE}
+# Apply fallback patterns to match titles to minor groups
+apply_fallback_patterns <- function(df, patterns) {
+  for (i in seq_len(nrow(patterns))) {
+    pattern <- patterns$Pattern[i]
+    group <- patterns$`Minor group`[i]
+    df <- df %>%
+      mutate(`Minor group` = ifelse(
+        is.na(`Minor group`) & grepl(pattern, Title, ignore.case = TRUE),
+        group,
+        `Minor group`
+      ))
+  }
+  df
+}
+
+df_out <- df_merged %>%
+  filter(Amount < 0) %>%
+  mutate(Amount = abs(Amount)) %>%
+  left_join(minor_groups, by = "Title") %>%
+  apply_fallback_patterns(fallback_patterns) %>%
+  left_join(major_groups, by = "Minor group") %>%
+  mutate(`Major group` = ifelse(is.na(`Major group`), "Unassigned", `Major group`))
+
+# Monthly spending by category
+df_out_by_category <- df_out %>%
+  group_by(Month, `Major group`) %>%
+  summarise(Total = sum(Amount), Count = n(), .groups = "drop")
+
+# Unassigned summary
+df_unassigned <- df_out %>%
+  filter(`Major group` == "Unassigned") %>%
+  group_by(Title) %>%
+  summarise(Total = sum(Amount), Count = n(), .groups = "drop") %>%
+  arrange(desc(Total))
+
+unassigned_total <- sum(df_unassigned$Total)
+unassigned_count <- sum(df_unassigned$Count)
+
+
+# Unassigned last 3 months
+recent_months <- all_months %>% tail(3)
+
+df_unassigned_recent <- df_out %>%
+  filter(`Major group` == "Unassigned", Month %in% recent_months) %>%
+  select(Date, Amount, Title) %>%
+  arrange(desc(Date))
+```
+
+```{r calculate-cash-flow, include=FALSE}
+# Monthly summaries
+df_in_summary <- df_merged %>%
+  filter(Amount > 0) %>%
+  group_by(Month) %>%
+  summarise(Money_In = sum(Amount))
+
+df_out_summary <- df_out %>%
+  group_by(Month) %>%
+  summarise(Money_Out = sum(Amount))
+
+# Combined cash flow
+monthly_flow <- full_join(df_in_summary, df_out_summary, by = "Month") %>%
+  replace_na(list(Money_In = 0, Money_Out = 0)) %>%
+  complete(Month = all_months, fill = list(Money_In = 0, Money_Out = 0)) %>%
+  arrange(Month) %>%
+  mutate(Net = Money_In - Money_Out)
+
+# X-axis breaks for charts (every 3 months)
+month_breaks <- all_months[seq(1, length(all_months), by = 3)]
+```
+
+<!-- ============================================ -->
+<!-- REPORT STARTS HERE                           -->
+<!-- ============================================ -->
+
+# Contents
+
+- Introduction
+- Data Quality
+  - Duplicates
+  - Missing weeks/months
+- Overview
+  - In / Out / Balance
+- Income
+  - Monthly contributions
+  - Cumulative contributions
+- Outgoings
+  - Monthly spending by catagory
+  - Catagory detail
+  - Unassigned transcations
+
+# Introduction
+
+The purpose of this report is to provide quick analysis of a joint bank account.
+
+The input is .csv exports from Nordea online bank portral.
+
+
+# Data Quality
+
+The data used in this report covers the period of `r format(date_min, "%d %B %Y")` to `r format(date_max, "%d %B %Y")` (`r length(all_months)` months). It has been taken from `r n_files` documents containing `r format(n_transactions, big.mark = ",")` transactions — `r format(n_transactions_in, big.mark = ",")` as income and `r format(n_transactions_out, big.mark = ",")` as outgoings.
+
+To ensure quality we:
+
+- Check for duplicate transactions - the same transaction on more than one .csv file.
+- Check for whole months with with no transactions.
+- Check for weeks with no transactions.
+
+### Transactions Summary
+
+```{r show-transactions-summary}
+transactions_summary %>%
+  knitr::kable(
+    col.names = c("Year", "Month", "In", "Out"),
+    format = "latex",
+    booktabs = TRUE
+  ) %>%
+  kable_styling(latex_options = c("HOLD_position")) %>%
+  collapse_rows(columns = 1, valign = "top", latex_hline = "major")
+```
+
+### Duplicates
+
+```{r show-duplicates, results='asis'}
+if (n_duplicate_occurrences == 0) {
+  cat("No duplicate records have been found.\n")
+} else {
+  cat(paste0(n_duplicate_occurrences, " duplicate record(s) found across multiple files (", n_duplicates_removed, " duplicate(s) removed from analysis):\n\n"))
+
+  duplicates_collapsed %>%
+    knitr::kable(
+      col.names = c("Date", "Amount", "Title", "Reference", "Files"),
+      format = "latex",
+      booktabs = TRUE,
+      escape = FALSE
+    ) %>%
+    kable_styling(
+      latex_options = c("HOLD_position"),
+      font_size = 9
+    ) %>%
+    column_spec(5, width = "3cm")
+}
+```
+
+### Missing Months
+
+```{r show-missing-months, results='asis'}
+if (length(missing_months) == 0) {
+  cat(paste0(
+    "This report contains data from every month from ",
+    format(date_min, "%B %Y"), " to ", format(date_max, "%B %Y"), ".\n"
+  ))
+} else {
+  cat(paste0(
+    "This report covers the period from ", format(date_min, "%B %Y"),
+    " to ", format(date_max, "%B %Y"),
+    ". There is no data for the following months: ",
+    paste(missing_months, collapse = ", "), ".\n"
+  ))
+}
+```
+
+### Missing Weeks
+
+```{r show-missing-weeks, results='asis'}
+if (nrow(missing_weeks) == 0) {
+  cat("All weeks in the period have at least one transaction.\n")
+} else {
+  cat("These weeks have no transactions in or out:\n\n")
+  missing_weeks %>%
+    knitr::kable(
+      col.names = c("Year", "Week"),
+      format = "latex",
+      booktabs = TRUE
+    ) %>%
+    kable_styling(latex_options = c("hold_position")) %>%
+    collapse_rows(columns = 1, valign = "top", latex_hline = "major")
+}
+```
+
+\newpage
+
+# Overview
+
+This section measures the health of our shared account: total income, total outgoings, and overall balance estimation.
+
+Balance estimation assumes a starting balance of zero.
+
+### Monthly Net Flow
+
+```{r show-net-flow}
+# Calculate cumulative balance
+monthly_flow <- monthly_flow %>%
+  mutate(Cumulative_Balance = cumsum(Net))
+
+# Prepare bar chart data (In/Out as positive/negative)
+bar_data <- monthly_flow %>%
+  pivot_longer(cols = c(Money_In, Money_Out), names_to = "Type", values_to = "Amount") %>%
+  mutate(
+    Type = recode(Type, "Money_In" = "In", "Money_Out" = "Out"),
+    Amount = ifelse(Type == "Out", -Amount, Amount)
+  )
+
+# Plot
+ggplot(bar_data, aes(x = Month)) +
+  # Bars: income (positive) and outgoings (negative)
+  geom_col(aes(y = Amount, fill = Type), position = "dodge") +
+  # Line: cumulative balance over time
+  geom_line(
+    data = monthly_flow,
+    aes(y = Cumulative_Balance, colour = "Cumulative Balance", group = 1),
+    linewidth = 1.2
+  ) +
+  geom_point(
+    data = monthly_flow,
+    aes(y = Cumulative_Balance, colour = "Cumulative Balance"),
+    size = 2.5
+  ) +
+  # Zero line
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  # Scales and labels
+  scale_x_discrete(breaks = month_breaks) +
+  scale_fill_manual(values = c("In" = "steelblue", "Out" = "coral")) +
+  scale_colour_manual(values = c("Cumulative Balance" = "darkgreen")) +
+  labs(y = "Amount (EUR)", x = NULL, fill = "", colour = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+\newpage
+
+# Income
+
+The two highest contributors to this account are `r person_1` and `r person_2`.
+
+### Monthly Contributions
+
+```{r show-monthly-contributions}
+df_in_by_month %>%
+  ggplot(aes(x = Month, y = Total, fill = Payee)) +
+  geom_col(position = "dodge") +
+  labs(y = "Amount (EUR)", fill = "") +
+  scale_x_discrete(breaks = month_breaks) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r show-contribution-averages, results='asis'}
+# Calculate average monthly contribution per person
+n_months <- length(unique(df_in_by_month$Month))
+
+person_1_avg <- person_1_total / n_months
+person_2_avg <- person_2_total / n_months
+
+# Calculate total from other sources
+other_total <- df_in %>%
+  filter(Payee == "Other") %>%
+  summarise(Total = sum(Amount)) %>%
+  pull(Total)
+
+if (length(other_total) == 0 || is.na(other_total)) other_total <- 0
+
+cat(paste0("**", person_1, "** has contributed an average of €",
+           format(round(person_1_avg, 2), big.mark = ",", nsmall = 2), "/month.\n\n"))
+cat(paste0("**", person_2, "** has contributed an average of €",
+           format(round(person_2_avg, 2), big.mark = ",", nsmall = 2), "/month.\n\n"))
+
+if (other_total > 0) {
+  cat(paste0("A total of €", format(round(other_total, 2), big.mark = ",", nsmall = 2),
+             " has come from other sources.\n"))
+}
+```
+
+### Cumulative Contributions
+
+```{r show-cumulative-contributions}
+df_in_cumulative %>%
+  ggplot(aes(x = Month, y = Cumulative, fill = Payee)) +
+  geom_col(position = "dodge") +
+  labs(y = "Amount (EUR)", fill = "") +
+  scale_x_discrete(breaks = month_breaks) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Totals
+
+```{r show-contribution-totals, results='asis'}
+cat(paste0("**", person_1, ":** €", format(person_1_total, big.mark = ",", nsmall = 2), "\n\n"))
+cat(paste0("**", person_2, ":** €", format(person_2_total, big.mark = ",", nsmall = 2), "\n\n"))
+cat(paste0("**Difference:** €", format(income_difference, big.mark = ",", nsmall = 2), "\n\n"))
+```
+
+# Outgoings
+
+
+### Monthly Spending by Category
+
+```{r show-spending-stacked}
+df_out_by_category %>%
+  ggplot(aes(x = Month, y = Total, fill = `Major group`)) +
+  geom_col() +
+  labs(y = "Amount (EUR)", fill = "") +
+  scale_x_discrete(breaks = month_breaks) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Monthly Spending by Category (Faceted)
+
+```{r show-spending-faceted, fig.height=10}
+df_out %>%
+  group_by(Month, `Major group`) %>%
+  summarise(Total = sum(Amount), .groups = "drop") %>%
+  complete(Month = all_months, `Major group`, fill = list(Total = 0)) %>%
+  ggplot(aes(x = Month, y = Total, fill = `Major group`)) +
+  geom_col() +
+  facet_wrap(~`Major group`, scales = "free_y", ncol = 3) +
+  labs(y = "Amount (EUR)") +
+  scale_x_discrete(breaks = month_breaks) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+    legend.position = "none"
+  )
+```
+
+### Category Detail
+
+Each category is shown for the most recent 12 months, with spend and transaction count. The summary shows the highest, lowest, average, and standard deviation for catagory in the 12 month period.
+
+```{r show-category-detail, results='asis', fig.width=6, fig.height=2}
+# Limit to last 12 months
+recent_months <- tail(sort(unique(all_months)), 12)
+
+# Only include groups that have transactions in the recent 12 months
+major_group_list <- df_out %>%
+  filter(Month %in% recent_months) %>%
+  pull(`Major group`) %>%
+  unique() %>%
+  sort()
+
+for (group in major_group_list) {
+  plot_data <- df_out %>%
+    filter(`Major group` == group, Month %in% recent_months) %>%
+    group_by(Month) %>%
+    summarise(Total = sum(Amount), Count = n(), .groups = "drop") %>%
+    complete(Month = recent_months, fill = list(Total = 0, Count = 0))
+
+  # Calculate summary stats
+  highest_month <- plot_data %>% filter(Total == max(Total)) %>% slice(1)
+  lowest_month <- plot_data %>% filter(Total == min(Total)) %>% slice(1)
+  avg_spend <- mean(plot_data$Total)
+  sd_spend <- sd(plot_data$Total)
+  
+  # Build summary stats label
+  stats_label <- paste0(
+    "High: ", highest_month$Month, " (", format(round(highest_month$Total, 0), big.mark = ","), " EUR)  |  ",
+    "Low: ", lowest_month$Month, " (", format(round(lowest_month$Total, 0), big.mark = ","), " EUR)  |  ",
+    "Avg: ", format(round(avg_spend, 0), big.mark = ","), " EUR  |  ",
+    "SD: ", format(round(sd_spend, 0), big.mark = ","), " EUR"
+  )
+
+  p <- plot_data %>%
+    ggplot(aes(x = Month, y = Total)) +
+    geom_col(fill = "steelblue") +
+    geom_text(aes(label = Count), vjust = -0.5, size = 3) +
+    
+    # --- FIX 2: Merged the two scale_y_continuous calls ---
+    # Using "EUR" text or standard ASCII ensures PDF compatibility
+    scale_y_continuous(
+      labels = scales::label_dollar(prefix = "€", big.mark = ","), 
+      expand = expansion(mult = c(0, 0.2))
+    ) +
+    
+    theme_minimal() +
+    theme(
+      plot.title = element_text(face = "bold", size = 14),
+      plot.subtitle = element_text(size = 10, color = "gray40", margin = margin(b = 10)),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      panel.grid.major.x = element_blank()
+    ) +
+    labs(
+      title = group, # No need for paste0 if it's just the variable
+      subtitle = stats_label,
+      y = "Amount (EUR)",
+      x = NULL
+    ) 
+
+  print(p)
+  cat("\n\n") # simplified spacing
+}
+```
+
+\newpage
+
+### Unassigned Transactions
+
+```{r show-unassigned, results='asis'}
+if (unassigned_count == 0) {
+  cat("All transactions have been categorised.\n")
+} else {
+  cat(paste0(
+    "In all time ", unassigned_count, " transactions totalling €",
+    format(unassigned_total, big.mark = ",", nsmall = 2),
+    " do not belong to a catagory.\n\n"
+  ))
+}
+```
+
+
+Groupings can be made by updating `minor_groups.csv` and `major_groups.csv` for strict matches, and `fallback_patterns.csv` for patterns that contain a string.
+
+Below are details of unassigned transactions in the past three months:
+
+```{r show-unassigned-recent, results='asis'}
+recent_months <- tail(all_months, 3)
+
+df_unassigned_recent <- df_out %>%
+  filter(`Major group` == "Unassigned", Month %in% recent_months) %>%
+  select(Date, Amount, Title) %>%
+  arrange(desc(Date))
+
+if (nrow(df_unassigned_recent) == 0) {
+  cat("No unassigned transactions in the last 3 months.\n")
+} else {
+  for (month in recent_months) {
+    month_data <- df_unassigned_recent %>%
+      filter(format(Date, "%Y-%m") == month) %>%
+      arrange(desc(Amount))
+    
+    if (nrow(month_data) > 0) {
+      cat(paste0("\n#### ", month, "\n\n"))
+      print(knitr::kable(month_data, col.names = c("Date", "Amount (EUR)", "Title")))
+      cat("\n")
+    }
+  }
+}
+```
