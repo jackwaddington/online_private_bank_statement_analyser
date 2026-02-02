@@ -26,12 +26,12 @@ export function CategorizationScreen() {
   const { transactions, categoryMappings, selectedContributors, duplicatesRemoved } = state
 
   const [inputValue, setInputValue] = useState('')
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [skippedTitles, setSkippedTitles] = useState<Set<string>>(new Set())
 
-  // Get uncategorized titles sorted by amount
+  // Get uncategorized titles sorted by amount, excluding skipped ones
   const suggestions = useMemo(
-    () => suggestCategories(transactions),
-    [transactions]
+    () => suggestCategories(transactions).filter(s => !skippedTitles.has(s.title)),
+    [transactions, skippedTitles]
   )
 
   // Get existing category names for autocomplete
@@ -40,8 +40,8 @@ export function CategorizationScreen() {
     [categoryMappings]
   )
 
-  // Current item to categorize
-  const currentItem = suggestions[currentIndex]
+  // Current item to categorize (always first non-skipped item)
+  const currentItem = suggestions[0]
 
   // Progress stats
   const progress = useMemo(
@@ -60,14 +60,14 @@ export function CategorizationScreen() {
     const updated = applyCategories(transactions, [...categoryMappings, mapping])
     dispatch({ type: 'CATEGORIES_APPLIED', transactions: updated })
 
-    // Move to next item
+    // Clear input - don't increment index since suggestions list shrinks automatically
     setInputValue('')
-    setCurrentIndex(prev => prev + 1)
   }
 
   const handleSkip = () => {
+    if (!currentItem) return
     setInputValue('')
-    setCurrentIndex(prev => prev + 1)
+    setSkippedTitles(prev => new Set([...prev, currentItem.title]))
   }
 
   const handleFinish = () => {
@@ -141,7 +141,7 @@ export function CategorizationScreen() {
     dispatch({ type: 'REPORT_GENERATED', data: reportData })
   }
 
-  const isDone = currentIndex >= suggestions.length
+  const isDone = suggestions.length === 0
 
   return (
     <Container>
@@ -152,15 +152,36 @@ export function CategorizationScreen() {
         </Description>
       </Header>
 
-      <ProgressBar>
-        <ProgressFill $percent={progress.percentComplete} />
-      </ProgressBar>
-      <ProgressText>
-        {progress.percentComplete}% categorized
-        ({progress.categorized} of {progress.totalExpenses} transactions,
-        €{progress.categorizedAmount.toLocaleString('en', { minimumFractionDigits: 0 })} of
-        €{(progress.categorizedAmount + progress.uncategorizedAmount).toLocaleString('en', { minimumFractionDigits: 0 })})
-      </ProgressText>
+      <ProgressBars>
+        <ProgressSection>
+          <ProgressHeader>
+            <ProgressLabel>By value</ProgressLabel>
+            <ProgressPercent>{progress.percentComplete}%</ProgressPercent>
+          </ProgressHeader>
+          <ProgressBar>
+            <ProgressFill $percent={progress.percentComplete} />
+          </ProgressBar>
+          <ProgressDetail>
+            €{progress.categorizedAmount.toLocaleString('en', { minimumFractionDigits: 0 })} of €{(progress.categorizedAmount + progress.uncategorizedAmount).toLocaleString('en', { minimumFractionDigits: 0 })}
+          </ProgressDetail>
+        </ProgressSection>
+        <ProgressSection>
+          <ProgressHeader>
+            <ProgressLabel>By count</ProgressLabel>
+            <ProgressPercent>
+              {progress.totalExpenses > 0
+                ? Math.round((progress.categorized / progress.totalExpenses) * 100)
+                : 100}%
+            </ProgressPercent>
+          </ProgressHeader>
+          <ProgressBar>
+            <ProgressFill $percent={progress.totalExpenses > 0 ? (progress.categorized / progress.totalExpenses) * 100 : 100} />
+          </ProgressBar>
+          <ProgressDetail>
+            {progress.categorized} of {progress.totalExpenses} transactions
+          </ProgressDetail>
+        </ProgressSection>
+      </ProgressBars>
 
       {!isDone && currentItem ? (
         <CategoryCard>
@@ -179,6 +200,7 @@ export function CategorizationScreen() {
               placeholder="Type category name..."
               autoFocus
             />
+            <InputHint>Tab to autocomplete • Enter to assign</InputHint>
           </InputRow>
 
           <ButtonRow>
@@ -194,7 +216,7 @@ export function CategorizationScreen() {
           </ButtonRow>
 
           <ItemCount>
-            {currentIndex + 1} of {suggestions.length} unique titles
+            {suggestions.length} unique title{suggestions.length !== 1 ? 's' : ''} remaining
           </ItemCount>
         </CategoryCard>
       ) : (
@@ -249,12 +271,39 @@ const Description = styled.p`
   color: ${({ theme }) => theme.colors.textSecondary};
 `
 
+const ProgressBars = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: ${({ theme }) => theme.spacing.lg};
+  margin-bottom: ${({ theme }) => theme.spacing.xl};
+`
+
+const ProgressSection = styled.div``
+
+const ProgressHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
+`
+
+const ProgressLabel = styled.div`
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+`
+
+const ProgressPercent = styled.div`
+  font-size: ${({ theme }) => theme.fontSize.lg};
+  font-weight: ${({ theme }) => theme.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.success};
+`
+
 const ProgressBar = styled.div`
   height: 8px;
   background: ${({ theme }) => theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.full};
   overflow: hidden;
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
+  margin-bottom: ${({ theme }) => theme.spacing.xs};
 `
 
 const ProgressFill = styled.div<{ $percent: number }>`
@@ -264,10 +313,9 @@ const ProgressFill = styled.div<{ $percent: number }>`
   transition: width ${({ theme }) => theme.transitions.normal};
 `
 
-const ProgressText = styled.div`
-  text-align: center;
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  color: ${({ theme }) => theme.colors.textSecondary};
+const ProgressDetail = styled.div`
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.colors.textMuted};
   margin-bottom: ${({ theme }) => theme.spacing.xl};
 `
 
@@ -294,6 +342,13 @@ const ItemStats = styled.div`
 
 const InputRow = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.md};
+`
+
+const InputHint = styled.div`
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.colors.textMuted};
+  margin-top: ${({ theme }) => theme.spacing.xs};
+  text-align: center;
 `
 
 const ButtonRow = styled.div`

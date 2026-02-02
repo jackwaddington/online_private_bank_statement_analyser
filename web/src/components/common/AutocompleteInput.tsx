@@ -82,6 +82,17 @@ export function AutocompleteInput({
         setIsOpen(false)
         setHighlightedIndex(-1)
         break
+      case 'Tab':
+        // Tab autocompletes to highlighted or first matching suggestion
+        if (filteredSuggestions.length > 0) {
+          e.preventDefault()
+          const suggestion = highlightedIndex >= 0
+            ? filteredSuggestions[highlightedIndex]
+            : filteredSuggestions[0]
+          onChange(suggestion)
+          setHighlightedIndex(0)
+        }
+        break
     }
   }
 
