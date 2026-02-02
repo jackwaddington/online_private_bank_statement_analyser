@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import styled from 'styled-components'
 import { Button } from '../common'
+import { SpendingChart, CashFlowChart } from '../charts'
 import { useApp } from '../../context'
+import { downloadReportZIP } from '../../core/export'
 
 export function ReportScreen() {
   const { state, dispatch } = useApp()
-  const { reportData } = state
+  const { reportData, transactions, categoryMappings, selectedContributors } = state
+  const [isDownloading, setIsDownloading] = useState(false)
 
   if (!reportData) {
     return (
@@ -36,6 +40,18 @@ export function ReportScreen() {
 
   const handleStartOver = () => {
     dispatch({ type: 'RESET' })
+  }
+
+  const handleDownload = async () => {
+    if (!reportData) return
+    setIsDownloading(true)
+    try {
+      await downloadReportZIP(transactions, categoryMappings, reportData, selectedContributors)
+    } catch (error) {
+      console.error('Download failed:', error)
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   // Sort categories by amount descending
@@ -156,6 +172,9 @@ export function ReportScreen() {
       {sortedCategories.length > 0 && (
         <Section>
           <SectionTitle>Spending by Category</SectionTitle>
+          <ChartWrapper>
+            <SpendingChart data={spending.byCategory} />
+          </ChartWrapper>
           <CategoryTable>
             <thead>
               <tr>
@@ -188,6 +207,9 @@ export function ReportScreen() {
       {cashFlow.monthly.length > 0 && (
         <Section>
           <SectionTitle>Monthly Cash Flow</SectionTitle>
+          <ChartWrapper>
+            <CashFlowChart data={cashFlow.monthly} />
+          </ChartWrapper>
           <MonthlyTable>
             <thead>
               <tr>
@@ -247,6 +269,9 @@ export function ReportScreen() {
 
       {/* Actions */}
       <Actions>
+        <Button onClick={handleDownload} disabled={isDownloading}>
+          {isDownloading ? 'Downloading...' : 'Download Report (ZIP)'}
+        </Button>
         <Button $variant="secondary" onClick={handleStartOver}>
           Start Over
         </Button>
@@ -298,6 +323,13 @@ const SectionTitle = styled.h2`
   margin-bottom: ${({ theme }) => theme.spacing.lg};
   padding-bottom: ${({ theme }) => theme.spacing.sm};
   border-bottom: 2px solid ${({ theme }) => theme.colors.border};
+`
+
+const ChartWrapper = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing.xl};
+  background: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  padding: ${({ theme }) => theme.spacing.lg};
 `
 
 const StatsGrid = styled.div`

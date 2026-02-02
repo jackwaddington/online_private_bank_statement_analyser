@@ -8,6 +8,8 @@ import {
   getUniqueCategories,
   createMapping,
   getCategorizationProgress,
+  extractTitlePatterns,
+  findMatchingTransactions,
 } from '../../core/processors'
 import { calculateDataQuality } from '../../core/calculations'
 import { getAllMonthsInRange } from '../../core/calculations/contributions'
@@ -27,6 +29,15 @@ export function CategorizationScreen() {
 
   const [inputValue, setInputValue] = useState('')
   const [skippedTitles, setSkippedTitles] = useState<Set<string>>(new Set())
+  const [showPatterns, setShowPatterns] = useState(true)
+  const [patternInput, setPatternInput] = useState('')
+  const [selectedPattern, setSelectedPattern] = useState<string | null>(null)
+
+  // Get common patterns for bulk categorization
+  const patterns = useMemo(
+    () => extractTitlePatterns(transactions),
+    [transactions]
+  )
 
   // Get uncategorized titles sorted by amount, excluding skipped ones
   const suggestions = useMemo(
@@ -68,6 +79,22 @@ export function CategorizationScreen() {
     if (!currentItem) return
     setInputValue('')
     setSkippedTitles(prev => new Set([...prev, currentItem.title]))
+  }
+
+  const handlePatternAssign = (category: string) => {
+    if (!selectedPattern || !category.trim()) return
+
+    // Create a "contains" mapping for the pattern
+    const mapping = createMapping(selectedPattern, category.trim(), 'contains')
+    dispatch({ type: 'CATEGORY_ADDED', mapping })
+
+    // Apply the new mapping to transactions
+    const updated = applyCategories(transactions, [...categoryMappings, mapping])
+    dispatch({ type: 'CATEGORIES_APPLIED', transactions: updated })
+
+    // Clear state
+    setPatternInput('')
+    setSelectedPattern(null)
   }
 
   const handleFinish = () => {
@@ -182,6 +209,59 @@ export function CategorizationScreen() {
           </ProgressDetail>
         </ProgressSection>
       </ProgressBars>
+
+      {/* Quick Categorize by Pattern */}
+      {patterns.length > 0 && !isDone && (
+        <PatternSection>
+          <PatternHeader onClick={() => setShowPatterns(!showPatterns)}>
+            <PatternTitle>Quick Categorize by Keyword</PatternTitle>
+            <PatternToggle>{showPatterns ? '▼' : '▶'}</PatternToggle>
+          </PatternHeader>
+          {showPatterns && (
+            <PatternContent>
+              <PatternHint>
+                Click a keyword to categorize all matching transactions at once
+              </PatternHint>
+              <PatternList>
+                {patterns.slice(0, 12).map(p => (
+                  <PatternChip
+                    key={p.pattern}
+                    $selected={selectedPattern === p.pattern}
+                    onClick={() => setSelectedPattern(selectedPattern === p.pattern ? null : p.pattern)}
+                  >
+                    <PatternWord>{p.pattern}</PatternWord>
+                    <PatternInfo>{p.matchCount} txns • €{p.totalAmount.toLocaleString('en', { minimumFractionDigits: 0 })}</PatternInfo>
+                  </PatternChip>
+                ))}
+              </PatternList>
+              {selectedPattern && (
+                <PatternAssign>
+                  <PatternMatch>
+                    Matches {findMatchingTransactions(transactions, selectedPattern).length} transactions
+                  </PatternMatch>
+                  <PatternInputRow>
+                    <AutocompleteInput
+                      value={patternInput}
+                      onChange={setPatternInput}
+                      onSubmit={handlePatternAssign}
+                      suggestions={existingCategories}
+                      placeholder={`Category for "${selectedPattern}"...`}
+                    />
+                  </PatternInputRow>
+                  <PatternButtons>
+                    <Button $variant="secondary" onClick={() => setSelectedPattern(null)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => handlePatternAssign(patternInput)} disabled={!patternInput.trim()}>
+                      Apply to All
+                    </Button>
+                  </PatternButtons>
+                </PatternAssign>
+              )}
+            </PatternContent>
+          )}
+        </PatternSection>
+      )}
 
       {!isDone && currentItem ? (
         <CategoryCard>
@@ -316,7 +396,102 @@ const ProgressFill = styled.div<{ $percent: number }>`
 const ProgressDetail = styled.div`
   font-size: ${({ theme }) => theme.fontSize.xs};
   color: ${({ theme }) => theme.colors.textMuted};
+`
+
+const PatternSection = styled.div`
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
   margin-bottom: ${({ theme }) => theme.spacing.xl};
+  overflow: hidden;
+`
+
+const PatternHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: ${({ theme }) => theme.spacing.md};
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.background};
+  }
+`
+
+const PatternTitle = styled.div`
+  font-weight: ${({ theme }) => theme.fontWeight.medium};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`
+
+const PatternToggle = styled.span`
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.colors.textMuted};
+`
+
+const PatternContent = styled.div`
+  padding: 0 ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.md};
+`
+
+const PatternHint = styled.div`
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.colors.textMuted};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`
+
+const PatternList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${({ theme }) => theme.spacing.xs};
+`
+
+const PatternChip = styled.button<{ $selected: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+  background: ${({ $selected, theme }) => $selected ? theme.colors.primaryLight : theme.colors.background};
+  border: 1px solid ${({ $selected, theme }) => $selected ? theme.colors.primary : theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.sm};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+`
+
+const PatternWord = styled.span`
+  font-weight: ${({ theme }) => theme.fontWeight.medium};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`
+
+const PatternInfo = styled.span`
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.colors.textMuted};
+`
+
+const PatternAssign = styled.div`
+  margin-top: ${({ theme }) => theme.spacing.md};
+  padding: ${({ theme }) => theme.spacing.md};
+  background: ${({ theme }) => theme.colors.background};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+`
+
+const PatternMatch = styled.div`
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`
+
+const PatternInputRow = styled.div`
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
+`
+
+const PatternButtons = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing.sm};
+  justify-content: flex-end;
 `
 
 const CategoryCard = styled.div`
