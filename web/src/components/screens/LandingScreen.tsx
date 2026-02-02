@@ -1,7 +1,25 @@
 import styled from 'styled-components'
-import { Button } from '../common'
+import { Button, FileDropZone } from '../common'
+import { useFileUpload } from '../../hooks'
+import { useAppState } from '../../context'
+
+// Import sample data - Vite handles this as a raw string
+import sampleCSV from '../../assets/sample-data/202405.csv?raw'
 
 export function LandingScreen() {
+  const { isLoading, error } = useAppState()
+  const { processFiles } = useFileUpload()
+
+  const handleFilesSelected = (files: File[]) => {
+    processFiles(files)
+  }
+
+  const handleUseSampleData = () => {
+    // Create a File object from the sample data
+    const sampleFile = new File([sampleCSV], 'sample-202405.csv', { type: 'text/csv' })
+    processFiles([sampleFile])
+  }
+
   return (
     <Container>
       <Hero>
@@ -12,28 +30,45 @@ export function LandingScreen() {
         </Subtitle>
       </Hero>
 
-      <Actions>
-        <ActionCard>
-          <ActionTitle>Upload Bank Statements</ActionTitle>
-          <ActionDescription>
-            Upload your Nordea CSV exports to start analysing.
-            You can also upload a previous groupings file.
-          </ActionDescription>
-          <Button $size="lg" disabled>
-            Select Files (Coming Soon)
-          </Button>
-        </ActionCard>
+      {error && (
+        <ErrorBanner role="alert">
+          <ErrorIcon>⚠️</ErrorIcon>
+          <ErrorText>{error}</ErrorText>
+        </ErrorBanner>
+      )}
 
-        <ActionCard>
-          <ActionTitle>Try with Sample Data</ActionTitle>
-          <ActionDescription>
-            See how it works with example data before uploading your own.
-          </ActionDescription>
-          <Button $variant="outline" $size="lg" disabled>
-            Use Sample Data (Coming Soon)
-          </Button>
-        </ActionCard>
-      </Actions>
+      <UploadSection>
+        <SectionTitle>Upload Bank Statements</SectionTitle>
+        <SectionDescription>
+          Upload your Nordea CSV exports to start analysing.
+          You can also include a previous groupings file to reuse your categories.
+        </SectionDescription>
+        <FileDropZone
+          onFilesSelected={handleFilesSelected}
+          disabled={isLoading}
+        />
+      </UploadSection>
+
+      <Divider>
+        <DividerLine />
+        <DividerText>or</DividerText>
+        <DividerLine />
+      </Divider>
+
+      <SampleSection>
+        <SectionTitle>Try with Sample Data</SectionTitle>
+        <SectionDescription>
+          See how it works with example data before uploading your own.
+        </SectionDescription>
+        <Button
+          $variant="outline"
+          $size="lg"
+          onClick={handleUseSampleData}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Loading...' : 'Use Sample Data'}
+        </Button>
+      </SampleSection>
 
       <PrivacyNote>
         <PrivacyIcon>🔒</PrivacyIcon>
@@ -47,14 +82,14 @@ export function LandingScreen() {
 }
 
 const Container = styled.main`
-  max-width: 800px;
+  max-width: 700px;
   margin: 0 auto;
   padding: ${({ theme }) => theme.spacing.xl};
 `
 
 const Hero = styled.header`
   text-align: center;
-  margin-bottom: ${({ theme }) => theme.spacing.xxl};
+  margin-bottom: ${({ theme }) => theme.spacing.xl};
 `
 
 const Title = styled.h1`
@@ -69,29 +104,63 @@ const Subtitle = styled.p`
   margin: 0 auto;
 `
 
-const Actions = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: ${({ theme }) => theme.spacing.lg};
+const ErrorBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  background: ${({ theme }) => theme.colors.errorLight};
+  border: 1px solid ${({ theme }) => theme.colors.error};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  padding: ${({ theme }) => theme.spacing.md};
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+`
+
+const ErrorIcon = styled.span`
+  font-size: ${({ theme }) => theme.fontSize.lg};
+`
+
+const ErrorText = styled.span`
+  color: ${({ theme }) => theme.colors.error};
+`
+
+const UploadSection = styled.section`
+  margin-bottom: ${({ theme }) => theme.spacing.lg};
+`
+
+const SampleSection = styled.section`
+  text-align: center;
   margin-bottom: ${({ theme }) => theme.spacing.xxl};
 `
 
-const ActionCard = styled.div`
-  background: ${({ theme }) => theme.colors.surface};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.lg};
-  padding: ${({ theme }) => theme.spacing.xl};
+const SectionTitle = styled.h2`
+  font-size: ${({ theme }) => theme.fontSize.xl};
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
   text-align: center;
 `
 
-const ActionTitle = styled.h2`
-  font-size: ${({ theme }) => theme.fontSize.xl};
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
-`
-
-const ActionDescription = styled.p`
+const SectionDescription = styled.p`
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-bottom: ${({ theme }) => theme.spacing.lg};
+  text-align: center;
+`
+
+const Divider = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.md};
+  margin: ${({ theme }) => theme.spacing.xl} 0;
+`
+
+const DividerLine = styled.div`
+  flex: 1;
+  height: 1px;
+  background: ${({ theme }) => theme.colors.border};
+`
+
+const DividerText = styled.span`
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  text-transform: uppercase;
 `
 
 const PrivacyNote = styled.div`

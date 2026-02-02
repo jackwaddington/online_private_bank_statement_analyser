@@ -2,7 +2,7 @@ import { ThemeProvider } from 'styled-components'
 import { AppProvider, useAppState } from './context'
 import { theme, GlobalStyle } from './styles'
 import { StepIndicator } from './components/common'
-import { LandingScreen } from './components/screens'
+import { LandingScreen, DedupScreen, ContributorsScreen, CategorizationScreen, ReportScreen } from './components/screens'
 import styled from 'styled-components'
 
 /**
@@ -17,13 +17,13 @@ function AppContent() {
       case 'landing':
         return <LandingScreen />
       case 'dedup':
-        return <PlaceholderScreen title="Review Duplicates" />
+        return <DedupScreen />
       case 'contributors':
-        return <PlaceholderScreen title="Select Contributors" />
+        return <ContributorsScreen />
       case 'categorize':
-        return <PlaceholderScreen title="Categorize Spending" />
+        return <CategorizationScreen />
       case 'report':
-        return <PlaceholderScreen title="Your Report" />
+        return <ReportScreen />
       default:
         return <LandingScreen />
     }
@@ -34,18 +34,6 @@ function AppContent() {
       {step !== 'landing' && <StepIndicator currentStep={step} />}
       {renderScreen()}
     </AppContainer>
-  )
-}
-
-/**
- * Placeholder screen for steps not yet implemented.
- */
-function PlaceholderScreen({ title }: { title: string }) {
-  return (
-    <PlaceholderContainer>
-      <h2>{title}</h2>
-      <p>This screen is coming soon.</p>
-    </PlaceholderContainer>
   )
 }
 
@@ -67,17 +55,6 @@ const AppContainer = styled.div`
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-`
-
-const PlaceholderContainer = styled.main`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: ${({ theme }) => theme.spacing.xl};
-  color: ${({ theme }) => theme.colors.textSecondary};
 `
 
 export default App
