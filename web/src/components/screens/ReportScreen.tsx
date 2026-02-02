@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import styled from 'styled-components'
 import { Button } from '../common'
-import { SpendingChart, CashFlowChart } from '../charts'
+import { SpendingChart, CashFlowChart, CategoryDetailChart } from '../charts'
 import { useApp } from '../../context'
 import { downloadReportZIP } from '../../core/export'
 
@@ -9,6 +9,7 @@ export function ReportScreen() {
   const { state, dispatch } = useApp()
   const { reportData, transactions, categoryMappings, selectedContributors } = state
   const [isDownloading, setIsDownloading] = useState(false)
+  const [showCategoryDetails, setShowCategoryDetails] = useState(false)
 
   if (!reportData) {
     return (
@@ -76,6 +77,10 @@ export function ReportScreen() {
         <SectionTitle>Data Overview</SectionTitle>
         <StatsGrid>
           <StatCard>
+            <StatValue>{dataQuality.totalFiles}</StatValue>
+            <StatLabel>Documents</StatLabel>
+          </StatCard>
+          <StatCard>
             <StatValue>{dataQuality.totalTransactions}</StatValue>
             <StatLabel>Total Transactions</StatLabel>
           </StatCard>
@@ -105,7 +110,14 @@ export function ReportScreen() {
             )}
             {dataQuality.missingWeeks.length > 0 && (
               <Warning>
-                Missing data for {dataQuality.missingWeeks.length} week(s)
+                Missing data for {dataQuality.missingWeeks.length} week(s):{' '}
+                {dataQuality.missingWeeks
+                  .map(w => {
+                    // w is "YYYY-WW" format, convert to "Week WW/YYYY"
+                    const [year, week] = w.split('-')
+                    return `Week ${week}/${year}`
+                  })
+                  .join(', ')}
               </Warning>
             )}
             {spending.uncategorizedCount > 0 && (
@@ -236,6 +248,29 @@ export function ReportScreen() {
               ))}
             </tbody>
           </MonthlyTable>
+        </Section>
+      )}
+
+      {/* Category Details (Collapsible) */}
+      {sortedCategories.length > 0 && spending.monthly.length > 0 && (
+        <Section>
+          <CollapsibleHeader onClick={() => setShowCategoryDetails(!showCategoryDetails)}>
+            <SectionTitle style={{ marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+              Category Details (Last 12 Months)
+            </SectionTitle>
+            <ToggleIcon>{showCategoryDetails ? '−' : '+'}</ToggleIcon>
+          </CollapsibleHeader>
+          {showCategoryDetails && (
+            <CategoryDetailsContainer>
+              {sortedCategories.map(([category]) => (
+                <CategoryDetailChart
+                  key={category}
+                  category={category}
+                  monthlySpending={spending.monthly}
+                />
+              ))}
+            </CategoryDetailsContainer>
+          )}
         </Section>
       )}
 
@@ -607,6 +642,31 @@ const MoreItems = styled.div`
   text-align: center;
   font-size: ${({ theme }) => theme.fontSize.sm};
   color: ${({ theme }) => theme.colors.textMuted};
+`
+
+const CollapsibleHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding-bottom: ${({ theme }) => theme.spacing.sm};
+  border-bottom: 2px solid ${({ theme }) => theme.colors.border};
+
+  &:hover {
+    opacity: 0.8;
+  }
+`
+
+const ToggleIcon = styled.span`
+  font-size: ${({ theme }) => theme.fontSize.xl};
+  font-weight: ${({ theme }) => theme.fontWeight.bold};
+  color: ${({ theme }) => theme.colors.primary};
+  width: 24px;
+  text-align: center;
+`
+
+const CategoryDetailsContainer = styled.div`
+  margin-top: ${({ theme }) => theme.spacing.lg};
 `
 
 const Actions = styled.div`
