@@ -1,5 +1,8 @@
-# online_private_bank_statement_analyser
-An expression of my [bank statement analysis logic](https://github.com/jackwaddington/joint-account-analyser) with a web interface.
+# Joint Account Analyser
+
+**[Try it live](https://jackwaddington.github.io/online_private_bank_statement_analyser/)** - No signup, no data leaves your browser.
+
+A privacy-first web app for analysing shared bank accounts. Built on my [R-based analysis logic](https://github.com/jackwaddington/joint-account-analyser), now running entirely in your browser.
 
 I was thinking about what processing power we have with JavaScript in a browser, and that we could probably process CSVs locally (security benefit?) and share with others the ability to make this basic but powerful analysis to understand where our money goes.
 
