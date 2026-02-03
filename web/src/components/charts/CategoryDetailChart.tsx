@@ -56,7 +56,7 @@ export function CategoryDetailChart({ category, monthlySpending }: CategoryDetai
     id: 'countLabels',
     afterDatasetsDraw(chart) {
       const { ctx } = chart
-      chart.data.datasets.forEach((dataset, datasetIndex) => {
+      chart.data.datasets.forEach((_dataset, datasetIndex) => {
         const meta = chart.getDatasetMeta(datasetIndex)
         meta.data.forEach((bar, index) => {
           const count = filledData[index].count

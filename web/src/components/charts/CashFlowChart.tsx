@@ -8,7 +8,6 @@ import {
   PointElement,
   Tooltip,
   Legend,
-  type TooltipItem,
 } from 'chart.js'
 import styled from 'styled-components'
 import { theme } from '../../styles'
@@ -64,7 +63,7 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
       },
       tooltip: {
         callbacks: {
-          label: (context: TooltipItem<'bar'> | TooltipItem<'line'>) => {
+          label: (context: { raw: unknown; dataset: { label?: string } }) => {
             const value = context.raw as number
             const absValue = Math.abs(value)
             const formattedValue = `€${absValue.toLocaleString('en', { minimumFractionDigits: 2 })}`
