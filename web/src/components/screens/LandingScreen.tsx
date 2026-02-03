@@ -3,8 +3,22 @@ import { Button, FileDropZone } from '../common'
 import { useFileUpload } from '../../hooks'
 import { useAppState } from '../../context'
 
-// Import sample data - Vite handles this as a raw string
-import sampleCSV from '../../assets/sample-data/202405.csv?raw'
+// Import sample data - Vite handles these as raw strings
+import sample202405 from '../../assets/sample-data/202405.csv?raw'
+import sample202406 from '../../assets/sample-data/202406.csv?raw'
+import sample202407 from '../../assets/sample-data/202407.csv?raw'
+import sample202408 from '../../assets/sample-data/202408.csv?raw'
+import sample202409 from '../../assets/sample-data/202409.csv?raw'
+import sample202410 from '../../assets/sample-data/202410.csv?raw'
+
+const sampleData = [
+  { content: sample202405, name: '202405.csv' },
+  { content: sample202406, name: '202406.csv' },
+  { content: sample202407, name: '202407.csv' },
+  { content: sample202408, name: '202408.csv' },
+  { content: sample202409, name: '202409.csv' },
+  { content: sample202410, name: '202410.csv' },
+]
 
 export function LandingScreen() {
   const { isLoading, error } = useAppState()
@@ -15,9 +29,11 @@ export function LandingScreen() {
   }
 
   const handleUseSampleData = () => {
-    // Create a File object from the sample data
-    const sampleFile = new File([sampleCSV], 'sample-202405.csv', { type: 'text/csv' })
-    processFiles([sampleFile])
+    // Create File objects from all sample data (6 months)
+    const sampleFiles = sampleData.map(
+      ({ content, name }) => new File([content], name, { type: 'text/csv' })
+    )
+    processFiles(sampleFiles)
   }
 
   return (
