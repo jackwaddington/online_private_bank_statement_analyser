@@ -4,7 +4,9 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  BarController,
   LineElement,
+  LineController,
   PointElement,
   Tooltip,
   Legend,
@@ -14,7 +16,7 @@ import { theme } from '../../styles'
 import type { MonthlyCashFlow } from '../../core/types/report'
 
 // Register Chart.js components
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, BarController, LineElement, LineController, PointElement, Tooltip, Legend)
 
 interface CashFlowChartProps {
   data: MonthlyCashFlow[]
