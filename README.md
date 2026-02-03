@@ -10,7 +10,7 @@ As I am pressed for time, with so many things I would like to explore and build 
 I am really impressed with what is possible here, and how much easier this is than what I have done with spreadsheets for years.
 
 # 1. The "Data Engine" (Processing & Parsing)
-This isn't just a simple UI; your project is built to handle and validate data.
+This isn't just a simple UI; the project is built to handle and validate data.
 
 papaparse: A powerful CSV parser. This lets users upload spreadsheet files so the app can read them.
 
