@@ -4,6 +4,12 @@
 
 A privacy-first tool for couples to analyse shared bank accounts. Upload Nordea CSV exports, categorise spending, track contributions, and see where your money goes.
 
+![Landing page](screenshots/landing.png)
+
+![Cash flow chart](screenshots/cashflow.png)
+
+![Category breakdown](screenshots/categories.png)
+
 ## Features
 
 - **Complete privacy** - all processing happens in your browser, nothing sent to any server
