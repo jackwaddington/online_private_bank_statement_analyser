@@ -35,4 +35,4 @@ npm run dev
 
 ## Tech
 
-React 19, TypeScript, Chart.js, Vite, styled-components. 177 passing tests.
+React 19, TypeScript, Chart.js, Vite, styled-components.
