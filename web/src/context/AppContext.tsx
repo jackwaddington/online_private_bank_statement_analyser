@@ -1,5 +1,6 @@
-import { createContext, useContext, useReducer, type ReactNode } from 'react'
+import { useReducer, type ReactNode } from 'react'
 import { type AppState, type AppAction, initialState } from './types'
+import { AppContext } from './useAppHooks'
 
 /**
  * Reducer function for application state.
@@ -87,16 +88,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
 }
 
 /**
- * Context type including state and dispatch.
- */
-interface AppContextType {
-  state: AppState
-  dispatch: React.Dispatch<AppAction>
-}
-
-const AppContext = createContext<AppContextType | null>(null)
-
-/**
  * Provider component for application state.
  */
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -107,29 +98,4 @@ export function AppProvider({ children }: { children: ReactNode }) {
       {children}
     </AppContext.Provider>
   )
-}
-
-/**
- * Hook to access application state and dispatch.
- */
-export function useApp() {
-  const context = useContext(AppContext)
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider')
-  }
-  return context
-}
-
-/**
- * Hook to access just the state (for components that only read).
- */
-export function useAppState() {
-  return useApp().state
-}
-
-/**
- * Hook to access just the dispatch (for components that only write).
- */
-export function useAppDispatch() {
-  return useApp().dispatch
 }
