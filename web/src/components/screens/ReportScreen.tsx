@@ -9,7 +9,13 @@ export function ReportScreen() {
   const { state, dispatch } = useApp()
   const { reportData, transactions, categoryMappings, selectedContributors } = state
   const [isDownloading, setIsDownloading] = useState(false)
+  const [showDataOverview, setShowDataOverview] = useState(false)
+  const [showContributions, setShowContributions] = useState(false)
+  const [showCashFlow, setShowCashFlow] = useState(false)
+  const [showSpendingByCategory, setShowSpendingByCategory] = useState(false)
+  const [showMonthlyCashFlow, setShowMonthlyCashFlow] = useState(false)
   const [showCategoryDetails, setShowCategoryDetails] = useState(false)
+  const [showUncategorized, setShowUncategorized] = useState(false)
 
   if (!reportData) {
     return (
@@ -74,7 +80,14 @@ export function ReportScreen() {
 
       {/* Data Quality Section */}
       <Section>
-        <SectionTitle>Data Overview</SectionTitle>
+        <CollapsibleHeader onClick={() => setShowDataOverview(!showDataOverview)}>
+          <SectionTitle style={{ marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+            Data Overview
+          </SectionTitle>
+          <ToggleIcon>{showDataOverview ? '−' : '+'}</ToggleIcon>
+        </CollapsibleHeader>
+        {showDataOverview && (
+        <CollapsibleContent>
         <StatsGrid>
           <StatCard>
             <StatValue>{dataQuality.totalFiles}</StatValue>
@@ -127,12 +140,21 @@ export function ReportScreen() {
             )}
           </WarningsBox>
         )}
+        </CollapsibleContent>
+        )}
       </Section>
 
       {/* Contributions Section */}
       {contributions.contributors.length > 0 && (
         <Section>
-          <SectionTitle>Contributions</SectionTitle>
+          <CollapsibleHeader onClick={() => setShowContributions(!showContributions)}>
+            <SectionTitle style={{ marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+              Contributions
+            </SectionTitle>
+            <ToggleIcon>{showContributions ? '−' : '+'}</ToggleIcon>
+          </CollapsibleHeader>
+          {showContributions && (
+          <CollapsibleContent>
           <ContributorCards>
             {contributions.contributors.map(contributor => (
               <ContributorCard key={contributor.name}>
@@ -158,12 +180,21 @@ export function ReportScreen() {
               </EqualisationAmount>
             </EqualisationBox>
           )}
+          </CollapsibleContent>
+          )}
         </Section>
       )}
 
       {/* Cash Flow Summary */}
       <Section>
-        <SectionTitle>Cash Flow Summary</SectionTitle>
+        <CollapsibleHeader onClick={() => setShowCashFlow(!showCashFlow)}>
+          <SectionTitle style={{ marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+            Cash Flow Summary
+          </SectionTitle>
+          <ToggleIcon>{showCashFlow ? '−' : '+'}</ToggleIcon>
+        </CollapsibleHeader>
+        {showCashFlow && (
+        <CollapsibleContent>
         <CashFlowGrid>
           <CashFlowCard $type="income">
             <CashFlowLabel>Total Income</CashFlowLabel>
@@ -178,12 +209,21 @@ export function ReportScreen() {
             <CashFlowValue>{formatCurrency(cashFlow.netBalance)}</CashFlowValue>
           </CashFlowCard>
         </CashFlowGrid>
+        </CollapsibleContent>
+        )}
       </Section>
 
       {/* Spending by Category */}
       {sortedCategories.length > 0 && (
         <Section>
-          <SectionTitle>Spending by Category</SectionTitle>
+          <CollapsibleHeader onClick={() => setShowSpendingByCategory(!showSpendingByCategory)}>
+            <SectionTitle style={{ marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+              Spending by Category
+            </SectionTitle>
+            <ToggleIcon>{showSpendingByCategory ? '−' : '+'}</ToggleIcon>
+          </CollapsibleHeader>
+          {showSpendingByCategory && (
+          <CollapsibleContent>
           <ChartWrapper>
             <SpendingChart data={spending.byCategory} />
           </ChartWrapper>
@@ -212,13 +252,22 @@ export function ReportScreen() {
               </tr>
             </tfoot>
           </CategoryTable>
+          </CollapsibleContent>
+          )}
         </Section>
       )}
 
       {/* Monthly Cash Flow */}
       {cashFlow.monthly.length > 0 && (
         <Section>
-          <SectionTitle>Monthly Cash Flow</SectionTitle>
+          <CollapsibleHeader onClick={() => setShowMonthlyCashFlow(!showMonthlyCashFlow)}>
+            <SectionTitle style={{ marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+              Monthly Cash Flow
+            </SectionTitle>
+            <ToggleIcon>{showMonthlyCashFlow ? '−' : '+'}</ToggleIcon>
+          </CollapsibleHeader>
+          {showMonthlyCashFlow && (
+          <CollapsibleContent>
           <ChartWrapper>
             <CashFlowChart data={cashFlow.monthly} />
           </ChartWrapper>
@@ -248,6 +297,8 @@ export function ReportScreen() {
               ))}
             </tbody>
           </MonthlyTable>
+          </CollapsibleContent>
+          )}
         </Section>
       )}
 
@@ -261,7 +312,7 @@ export function ReportScreen() {
             <ToggleIcon>{showCategoryDetails ? '−' : '+'}</ToggleIcon>
           </CollapsibleHeader>
           {showCategoryDetails && (
-            <CategoryDetailsContainer>
+            <CollapsibleContent>
               {sortedCategories.map(([category]) => (
                 <CategoryDetailChart
                   key={category}
@@ -269,7 +320,7 @@ export function ReportScreen() {
                   monthlySpending={spending.monthly}
                 />
               ))}
-            </CategoryDetailsContainer>
+            </CollapsibleContent>
           )}
         </Section>
       )}
@@ -277,7 +328,14 @@ export function ReportScreen() {
       {/* Uncategorized Transactions */}
       {spending.uncategorized.length > 0 && (
         <Section>
-          <SectionTitle>Uncategorized Transactions</SectionTitle>
+          <CollapsibleHeader onClick={() => setShowUncategorized(!showUncategorized)}>
+            <SectionTitle style={{ marginBottom: 0, borderBottom: 'none', paddingBottom: 0 }}>
+              Uncategorized Transactions
+            </SectionTitle>
+            <ToggleIcon>{showUncategorized ? '−' : '+'}</ToggleIcon>
+          </CollapsibleHeader>
+          {showUncategorized && (
+          <CollapsibleContent>
           <UncategorizedInfo>
             {spending.uncategorizedCount} transactions totaling {formatCurrency(spending.uncategorizedTotal)}
           </UncategorizedInfo>
@@ -299,6 +357,8 @@ export function ReportScreen() {
               </MoreItems>
             )}
           </UncategorizedList>
+          </CollapsibleContent>
+          )}
         </Section>
       )}
 
@@ -665,7 +725,7 @@ const ToggleIcon = styled.span`
   text-align: center;
 `
 
-const CategoryDetailsContainer = styled.div`
+const CollapsibleContent = styled.div`
   margin-top: ${({ theme }) => theme.spacing.lg};
 `
 
