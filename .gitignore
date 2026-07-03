@@ -1,0 +1,7 @@
+web/.vite/
+**/web/.vite/
+.DS_Store
+.Rhistory
+__pycache__/
+.claude/settings.json
+node_modules/
