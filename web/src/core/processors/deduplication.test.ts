@@ -7,6 +7,7 @@ import {
   deduplicateTransactions,
 } from './deduplication'
 import type { Transaction } from '../types'
+import { parseNordeaDate, formatLocalDate } from '../types/transaction'
 
 // Helper to create test transactions
 function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
@@ -151,6 +152,29 @@ describe('findDuplicates', () => {
 
     expect(groups[0].title).toBe('MAY')
     expect(groups[1].title).toBe('JUNE')
+  })
+
+  it('dedup key date matches local date of Nordea-parsed date (timezone regression)', () => {
+    // Dates are parsed as local midnight via parseNordeaDate.
+    // In timezones east of UTC (e.g. UTC+2/+3), toISOString() would shift
+    // local midnight to the previous UTC day, making the key date wrong.
+    // formatLocalDate must return the same calendar date as the input string.
+    const inputDateStr = '2024/05/10'
+    const parsed = parseNordeaDate(inputDateStr)
+
+    // formatLocalDate should give back 2024-05-10 regardless of timezone
+    expect(formatLocalDate(parsed)).toBe('2024-05-10')
+
+    // Two identical transactions from different files must be detected as duplicates
+    // using this local date, not a UTC-shifted date.
+    const transactions: Transaction[] = [
+      createTransaction({ id: 'a', date: parsed, sourceFile: 'f1.csv' }),
+      createTransaction({ id: 'b', date: parsed, sourceFile: 'f2.csv' }),
+    ]
+    const groups = findDuplicates(transactions)
+    expect(groups).toHaveLength(1)
+    // The duplicate group's date should still be local 2024-05-10
+    expect(formatLocalDate(groups[0].date)).toBe('2024-05-10')
   })
 })
 

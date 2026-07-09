@@ -1,13 +1,18 @@
 import type { Transaction } from '../types'
 import type { DuplicateGroup } from '../types/report'
+import { formatLocalDate } from '../types/transaction'
 
 /**
  * Create a unique key for a transaction based on deduplication criteria.
  * Transactions with the same key are potential duplicates.
+ *
+ * Uses formatLocalDate so the date component matches the local calendar date
+ * (dates are parsed as local midnight; toISOString() would shift them to
+ * the previous day for users east of UTC).
  */
 function getTransactionKey(t: Transaction): string {
-  // Key: date (ISO) + amount + title + reference number
-  const dateStr = t.date.toISOString().split('T')[0] // YYYY-MM-DD
+  // Key: date (local YYYY-MM-DD) + amount + title + reference number
+  const dateStr = formatLocalDate(t.date)
   return `${dateStr}|${t.amount}|${t.title}|${t.referenceNumber}`
 }
 
