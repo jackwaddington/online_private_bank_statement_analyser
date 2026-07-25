@@ -1,4 +1,5 @@
 import styled from 'styled-components'
+import { formatAmount } from '../../../core/types/transaction'
 
 interface ProgressStats {
   percentComplete: number
@@ -33,10 +34,7 @@ export function CategorizationProgress({ progress }: Props) {
           <ProgressFill $percent={progress.percentComplete} />
         </ProgressBar>
         <ProgressDetail>
-          €{progress.categorizedAmount.toLocaleString('en', { minimumFractionDigits: 0 })} of €
-          {(progress.categorizedAmount + progress.uncategorizedAmount).toLocaleString('en', {
-            minimumFractionDigits: 0,
-          })}
+          €{formatAmount(progress.categorizedAmount)} of €{formatAmount(progress.categorizedAmount + progress.uncategorizedAmount)}
         </ProgressDetail>
       </ProgressSection>
       <ProgressSection>

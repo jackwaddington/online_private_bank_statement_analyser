@@ -1,5 +1,6 @@
 import styled from 'styled-components'
 import { Button, AutocompleteInput } from '../../common'
+import { formatAmount } from '../../../core/types/transaction'
 
 interface SuggestionItem {
   title: string
@@ -30,8 +31,7 @@ export function CategoryCard({
     <Card>
       <ItemTitle>{currentItem.title}</ItemTitle>
       <ItemStats>
-        {currentItem.transactionCount} transactions •€
-        {currentItem.totalAmount.toLocaleString('en', { minimumFractionDigits: 2 })} total
+        {currentItem.transactionCount} transactions •€{formatAmount(currentItem.totalAmount)} total
       </ItemStats>
 
       <InputRow>

@@ -14,7 +14,7 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
     id: 'test-0',
     date: new Date('2024-05-10'),
-    amount: 500,
+    amount: 50000, // €500 in cents
     title: 'TEST',
     name: '',
     referenceNumber: '',
@@ -64,9 +64,9 @@ describe('getAllMonthsInRange', () => {
 describe('calculateMonthlyContributions', () => {
   it('calculates monthly totals per contributor', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 500, contributor: 'Alex' }),
-      createTransaction({ id: 'b', date: new Date('2024-05-20'), amount: 300, contributor: 'Alex' }),
-      createTransaction({ id: 'c', date: new Date('2024-05-15'), amount: 400, contributor: 'Jordan' }),
+      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 50000, contributor: 'Alex' }),
+      createTransaction({ id: 'b', date: new Date('2024-05-20'), amount: 30000, contributor: 'Alex' }),
+      createTransaction({ id: 'c', date: new Date('2024-05-15'), amount: 40000, contributor: 'Jordan' }),
     ]
 
     const result = calculateMonthlyContributions(
@@ -78,13 +78,13 @@ describe('calculateMonthlyContributions', () => {
     const alexMay = result.find(r => r.month === '2024-05' && r.contributor === 'Alex')
     const jordanMay = result.find(r => r.month === '2024-05' && r.contributor === 'Jordan')
 
-    expect(alexMay?.amount).toBe(800)
-    expect(jordanMay?.amount).toBe(400)
+    expect(alexMay?.amount).toBe(80000)
+    expect(jordanMay?.amount).toBe(40000)
   })
 
   it('fills zero for months with no contributions', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 500, contributor: 'Alex' }),
+      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 50000, contributor: 'Alex' }),
     ]
 
     const result = calculateMonthlyContributions(
@@ -102,8 +102,8 @@ describe('calculateMonthlyContributions', () => {
 
   it('excludes "Other" contributor', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, contributor: 'Alex' }),
-      createTransaction({ id: 'b', amount: 1000, contributor: 'Other' }),
+      createTransaction({ id: 'a', amount: 50000, contributor: 'Alex' }),
+      createTransaction({ id: 'b', amount: 100000, contributor: 'Other' }),
     ]
 
     const result = calculateMonthlyContributions(
@@ -113,17 +113,17 @@ describe('calculateMonthlyContributions', () => {
     )
 
     expect(result).toHaveLength(1)
-    expect(result[0].amount).toBe(500)
+    expect(result[0].amount).toBe(50000)
   })
 })
 
 describe('calculateCumulativeContributions', () => {
   it('calculates cumulative correctly', () => {
     const monthly = [
-      { month: '2024-05', contributor: 'Alex', amount: 500 },
-      { month: '2024-05', contributor: 'Jordan', amount: 400 },
-      { month: '2024-06', contributor: 'Alex', amount: 300 },
-      { month: '2024-06', contributor: 'Jordan', amount: 200 },
+      { month: '2024-05', contributor: 'Alex', amount: 50000 },
+      { month: '2024-05', contributor: 'Jordan', amount: 40000 },
+      { month: '2024-06', contributor: 'Alex', amount: 30000 },
+      { month: '2024-06', contributor: 'Jordan', amount: 20000 },
     ]
 
     const result = calculateCumulativeContributions(monthly, ['Alex', 'Jordan'])
@@ -131,30 +131,30 @@ describe('calculateCumulativeContributions', () => {
     const alexJune = result.find(r => r.month === '2024-06' && r.contributor === 'Alex')
     const jordanJune = result.find(r => r.month === '2024-06' && r.contributor === 'Jordan')
 
-    expect(alexJune?.cumulative).toBe(800) // 500 + 300
-    expect(jordanJune?.cumulative).toBe(600) // 400 + 200
+    expect(alexJune?.cumulative).toBe(80000) // 50000 + 30000
+    expect(jordanJune?.cumulative).toBe(60000) // 40000 + 20000
   })
 })
 
 describe('calculateContributorSummaries', () => {
   it('calculates totals and averages', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, contributor: 'Alex' }),
-      createTransaction({ id: 'b', amount: 300, contributor: 'Alex' }),
-      createTransaction({ id: 'c', amount: 400, contributor: 'Jordan' }),
+      createTransaction({ id: 'a', amount: 50000, contributor: 'Alex' }),
+      createTransaction({ id: 'b', amount: 30000, contributor: 'Alex' }),
+      createTransaction({ id: 'c', amount: 40000, contributor: 'Jordan' }),
     ]
 
     const summaries = calculateContributorSummaries(transactions, ['Alex', 'Jordan'], 2)
 
     expect(summaries[0].name).toBe('Alex')
-    expect(summaries[0].total).toBe(800)
-    expect(summaries[0].monthlyAverage).toBe(400)
+    expect(summaries[0].total).toBe(80000)
+    expect(summaries[0].monthlyAverage).toBe(40000)
   })
 
   it('sorts by total descending', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 100, contributor: 'Small' }),
-      createTransaction({ id: 'b', amount: 1000, contributor: 'Big' }),
+      createTransaction({ id: 'a', amount: 10000, contributor: 'Small' }),
+      createTransaction({ id: 'b', amount: 100000, contributor: 'Big' }),
     ]
 
     const summaries = calculateContributorSummaries(transactions, ['Small', 'Big'], 1)
@@ -166,14 +166,14 @@ describe('calculateContributorSummaries', () => {
 describe('calculateEqualisation', () => {
   it('calculates equalisation amount', () => {
     const summaries = [
-      { name: 'Alex', total: 1000, monthlyAverage: 500 },
-      { name: 'Jordan', total: 600, monthlyAverage: 300 },
+      { name: 'Alex', total: 100000, monthlyAverage: 50000 },
+      { name: 'Jordan', total: 60000, monthlyAverage: 30000 },
     ]
 
     const result = calculateEqualisation(summaries)
 
-    expect(result.difference).toBe(400)
-    expect(result.equalisationAmount).toBe(200)
+    expect(result.difference).toBe(40000)
+    expect(result.equalisationAmount).toBe(20000)
     expect(result.higherContributor).toBe('Alex')
     expect(result.lowerContributor).toBe('Jordan')
   })
@@ -193,11 +193,11 @@ describe('calculateEqualisation', () => {
 describe('calculateOtherIncome', () => {
   it('sums income from Other contributor', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, contributor: 'Alex' }),
-      createTransaction({ id: 'b', amount: 100, contributor: 'Other' }),
-      createTransaction({ id: 'c', amount: 50, contributor: 'Other' }),
+      createTransaction({ id: 'a', amount: 50000, contributor: 'Alex' }),
+      createTransaction({ id: 'b', amount: 10000, contributor: 'Other' }),
+      createTransaction({ id: 'c', amount: 5000, contributor: 'Other' }),
     ]
 
-    expect(calculateOtherIncome(transactions)).toBe(150)
+    expect(calculateOtherIncome(transactions)).toBe(15000)
   })
 })

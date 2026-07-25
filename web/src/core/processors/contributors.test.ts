@@ -14,7 +14,7 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
     id: 'test-0',
     date: new Date('2024-05-10'),
-    amount: 100, // Default to income
+    amount: 10000, // Default to €100 income in cents
     title: 'TEST PERSON',
     name: '',
     referenceNumber: 'REF123',
@@ -73,31 +73,31 @@ describe('normalizeName', () => {
 describe('findTopContributors', () => {
   it('finds top N contributors by total amount', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, name: 'ALEX' }),
-      createTransaction({ id: 'b', amount: 300, name: 'JORDAN' }),
-      createTransaction({ id: 'c', amount: 200, name: 'ALEX' }), // Alex total: 700
-      createTransaction({ id: 'd', amount: 100, name: 'SAM' }),
+      createTransaction({ id: 'a', amount: 50000, name: 'ALEX' }),
+      createTransaction({ id: 'b', amount: 30000, name: 'JORDAN' }),
+      createTransaction({ id: 'c', amount: 20000, name: 'ALEX' }), // Alex total: 70000
+      createTransaction({ id: 'd', amount: 10000, name: 'SAM' }),
     ]
 
     const top2 = findTopContributors(transactions, 2)
 
     expect(top2).toHaveLength(2)
     expect(top2[0].name).toBe('Alex')
-    expect(top2[0].total).toBe(700)
+    expect(top2[0].total).toBe(70000)
     expect(top2[1].name).toBe('Jordan')
-    expect(top2[1].total).toBe(300)
+    expect(top2[1].total).toBe(30000)
   })
 
   it('only considers positive amounts (income)', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, name: 'ALEX' }),
-      createTransaction({ id: 'b', amount: -200, name: 'ALEX' }), // Expense - ignored
-      createTransaction({ id: 'c', amount: 300, name: 'JORDAN' }),
+      createTransaction({ id: 'a', amount: 50000, name: 'ALEX' }),
+      createTransaction({ id: 'b', amount: -20000, name: 'ALEX' }), // Expense - ignored
+      createTransaction({ id: 'c', amount: 30000, name: 'JORDAN' }),
     ]
 
     const contributors = findTopContributors(transactions, 10)
 
-    expect(contributors.find(c => c.name === 'Alex')?.total).toBe(500) // Not 300
+    expect(contributors.find(c => c.name === 'Alex')?.total).toBe(50000) // Not 30000
   })
 
   it('extracts name from title when Name field is empty', () => {
@@ -122,10 +122,10 @@ describe('findTopContributors', () => {
 
   it('counts transactions per contributor', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 100, name: 'ALEX' }),
-      createTransaction({ id: 'b', amount: 100, name: 'ALEX' }),
-      createTransaction({ id: 'c', amount: 100, name: 'ALEX' }),
-      createTransaction({ id: 'd', amount: 500, name: 'JORDAN' }),
+      createTransaction({ id: 'a', amount: 10000, name: 'ALEX' }),
+      createTransaction({ id: 'b', amount: 10000, name: 'ALEX' }),
+      createTransaction({ id: 'c', amount: 10000, name: 'ALEX' }),
+      createTransaction({ id: 'd', amount: 50000, name: 'JORDAN' }),
     ]
 
     const contributors = findTopContributors(transactions, 10)
@@ -141,8 +141,8 @@ describe('findTopContributors', () => {
 
   it('handles no income transactions', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100 }), // All expenses
-      createTransaction({ id: 'b', amount: -200 }),
+      createTransaction({ id: 'a', amount: -10000 }), // All expenses
+      createTransaction({ id: 'b', amount: -20000 }),
     ]
 
     const contributors = findTopContributors(transactions, 2)
@@ -151,9 +151,9 @@ describe('findTopContributors', () => {
 
   it('defaults to top 2 contributors', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 100, name: 'A' }),
-      createTransaction({ id: 'b', amount: 100, name: 'B' }),
-      createTransaction({ id: 'c', amount: 100, name: 'C' }),
+      createTransaction({ id: 'a', amount: 10000, name: 'A' }),
+      createTransaction({ id: 'b', amount: 10000, name: 'B' }),
+      createTransaction({ id: 'c', amount: 10000, name: 'C' }),
     ]
 
     const contributors = findTopContributors(transactions)
@@ -165,10 +165,10 @@ describe('findTopContributors', () => {
 describe('findAllContributors', () => {
   it('returns all contributors', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 100, name: 'A' }),
-      createTransaction({ id: 'b', amount: 100, name: 'B' }),
-      createTransaction({ id: 'c', amount: 100, name: 'C' }),
-      createTransaction({ id: 'd', amount: 100, name: 'D' }),
+      createTransaction({ id: 'a', amount: 10000, name: 'A' }),
+      createTransaction({ id: 'b', amount: 10000, name: 'B' }),
+      createTransaction({ id: 'c', amount: 10000, name: 'C' }),
+      createTransaction({ id: 'd', amount: 10000, name: 'D' }),
     ]
 
     const contributors = findAllContributors(transactions)
@@ -180,8 +180,8 @@ describe('findAllContributors', () => {
 describe('tagContributions', () => {
   it('tags income with matching contributor name', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, name: 'ALEX' }),
-      createTransaction({ id: 'b', amount: 300, name: 'JORDAN' }),
+      createTransaction({ id: 'a', amount: 50000, name: 'ALEX' }),
+      createTransaction({ id: 'b', amount: 30000, name: 'JORDAN' }),
     ]
 
     const tagged = tagContributions(transactions, ['Alex', 'Jordan'])
@@ -192,9 +192,9 @@ describe('tagContributions', () => {
 
   it('tags unselected contributors as Other', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, name: 'ALEX' }),
-      createTransaction({ id: 'b', amount: 300, name: 'JORDAN' }),
-      createTransaction({ id: 'c', amount: 100, name: 'SAM' }),
+      createTransaction({ id: 'a', amount: 50000, name: 'ALEX' }),
+      createTransaction({ id: 'b', amount: 30000, name: 'JORDAN' }),
+      createTransaction({ id: 'c', amount: 10000, name: 'SAM' }),
     ]
 
     const tagged = tagContributions(transactions, ['Alex']) // Only Alex selected
@@ -206,8 +206,8 @@ describe('tagContributions', () => {
 
   it('is case insensitive for matching', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, name: 'alex' }),
-      createTransaction({ id: 'b', amount: 300, name: 'ALEX' }),
+      createTransaction({ id: 'a', amount: 50000, name: 'alex' }),
+      createTransaction({ id: 'b', amount: 30000, name: 'ALEX' }),
     ]
 
     const tagged = tagContributions(transactions, ['ALEX'])
@@ -218,7 +218,7 @@ describe('tagContributions', () => {
 
   it('does not tag expense transactions', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, title: 'ALEX STORE' }),
+      createTransaction({ id: 'a', amount: -10000, title: 'ALEX STORE' }),
     ]
 
     const tagged = tagContributions(transactions, ['Alex'])
@@ -228,7 +228,7 @@ describe('tagContributions', () => {
 
   it('does not mutate original transactions', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, name: 'ALEX' }),
+      createTransaction({ id: 'a', amount: 50000, name: 'ALEX' }),
     ]
 
     tagContributions(transactions, ['Alex'])
@@ -240,10 +240,10 @@ describe('tagContributions', () => {
 describe('getTransactionsByContributor', () => {
   it('groups tagged transactions by contributor', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 500, contributor: 'Alex' }),
-      createTransaction({ id: 'b', amount: 300, contributor: 'Alex' }),
-      createTransaction({ id: 'c', amount: 200, contributor: 'Jordan' }),
-      createTransaction({ id: 'd', amount: -100 }), // Expense, no contributor
+      createTransaction({ id: 'a', amount: 50000, contributor: 'Alex' }),
+      createTransaction({ id: 'b', amount: 30000, contributor: 'Alex' }),
+      createTransaction({ id: 'c', amount: 20000, contributor: 'Jordan' }),
+      createTransaction({ id: 'd', amount: -10000 }), // Expense, no contributor
     ]
 
     const grouped = getTransactionsByContributor(transactions)
@@ -255,7 +255,7 @@ describe('getTransactionsByContributor', () => {
 
   it('excludes expense transactions', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, contributor: 'Alex' }), // Expense
+      createTransaction({ id: 'a', amount: -10000, contributor: 'Alex' }), // Expense
     ]
 
     const grouped = getTransactionsByContributor(transactions)

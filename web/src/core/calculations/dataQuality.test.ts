@@ -15,7 +15,7 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
     id: 'test-0',
     date: new Date('2024-05-10'),
-    amount: -100,
+    amount: -10000, // -€100 in cents
     title: 'TEST',
     name: '',
     referenceNumber: '',
@@ -116,9 +116,9 @@ describe('countSourceFiles', () => {
 describe('calculateDataQuality', () => {
   it('calculates complete data quality metrics', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 500, sourceFile: 'may.csv' }),
-      createTransaction({ id: 'b', date: new Date('2024-05-15'), amount: -100, sourceFile: 'may.csv' }),
-      createTransaction({ id: 'c', date: new Date('2024-06-10'), amount: -200, sourceFile: 'june.csv' }),
+      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 50000, sourceFile: 'may.csv' }),
+      createTransaction({ id: 'b', date: new Date('2024-05-15'), amount: -10000, sourceFile: 'may.csv' }),
+      createTransaction({ id: 'c', date: new Date('2024-06-10'), amount: -20000, sourceFile: 'june.csv' }),
     ]
 
     const quality = calculateDataQuality(transactions, 2)
@@ -141,9 +141,9 @@ describe('calculateDataQuality', () => {
 describe('getTransactionCountsByMonth', () => {
   it('counts income and expense transactions per month', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 500 }),
-      createTransaction({ id: 'b', date: new Date('2024-05-15'), amount: -100 }),
-      createTransaction({ id: 'c', date: new Date('2024-05-20'), amount: -50 }),
+      createTransaction({ id: 'a', date: new Date('2024-05-10'), amount: 50000 }),
+      createTransaction({ id: 'b', date: new Date('2024-05-15'), amount: -10000 }),
+      createTransaction({ id: 'c', date: new Date('2024-05-20'), amount: -5000 }),
     ]
 
     const counts = getTransactionCountsByMonth(transactions)

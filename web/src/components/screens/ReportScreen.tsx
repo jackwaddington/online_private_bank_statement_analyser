@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '../common'
 import { useApp } from '../../context'
 import { downloadReportZIP } from '../../core/export'
+import { formatAmount } from '../../core/types/transaction'
 import {
   Container,
   EmptyState,
@@ -53,8 +54,7 @@ export function ReportScreen() {
       day: 'numeric',
     })
 
-  const formatCurrency = (amount: number) =>
-    `€${amount.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const formatCurrency = (cents: number) => `€${formatAmount(cents)}`
 
   const handleStartOver = () => dispatch({ type: 'RESET' })
 

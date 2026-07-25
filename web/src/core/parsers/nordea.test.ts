@@ -46,12 +46,12 @@ describe('parseNordeaCSV', () => {
     expect(transactions[2].title).toBe('ALEPA VUOSAARI')
   })
 
-  it('converts comma decimals to numbers', () => {
+  it('converts comma decimals to integer cents', () => {
     const transactions = parseNordeaCSV(VALID_CSV, 'test.csv')
 
-    expect(transactions[0].amount).toBe(-39.99)
-    expect(transactions[1].amount).toBe(800)
-    expect(transactions[2].amount).toBe(-64.39)
+    expect(transactions[0].amount).toBe(-3999)
+    expect(transactions[1].amount).toBe(80000)
+    expect(transactions[2].amount).toBe(-6439)
   })
 
   it('preserves reference numbers with leading zeros', () => {
@@ -81,7 +81,7 @@ describe('parseNordeaCSV', () => {
 
     const transactions = parseNordeaCSV(csvWithLargeAmount, 'test.csv')
 
-    expect(transactions[0].amount).toBe(1234.56)
+    expect(transactions[0].amount).toBe(123456)
   })
 
   it('trims whitespace from title', () => {
