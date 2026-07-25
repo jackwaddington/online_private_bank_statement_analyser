@@ -3,6 +3,7 @@ import {
   RawNordeaRowSchema,
   TransactionSchema,
   parseEuropeanDecimal,
+  formatAmount,
   parseNordeaDate,
   type Transaction,
 } from './transaction'
@@ -65,23 +66,23 @@ describe('RawNordeaRowSchema', () => {
 
 describe('parseEuropeanDecimal', () => {
   it('parses simple decimal with comma', () => {
-    expect(parseEuropeanDecimal('45,99')).toBe(45.99)
+    expect(parseEuropeanDecimal('45,99')).toBe(4599)
   })
 
   it('parses negative number', () => {
-    expect(parseEuropeanDecimal('-45,99')).toBe(-45.99)
+    expect(parseEuropeanDecimal('-45,99')).toBe(-4599)
   })
 
   it('parses number with thousand separator', () => {
-    expect(parseEuropeanDecimal('1.234,56')).toBe(1234.56)
+    expect(parseEuropeanDecimal('1.234,56')).toBe(123456)
   })
 
   it('parses large number with multiple thousand separators', () => {
-    expect(parseEuropeanDecimal('1.234.567,89')).toBe(1234567.89)
+    expect(parseEuropeanDecimal('1.234.567,89')).toBe(123456789)
   })
 
   it('parses whole number without decimal', () => {
-    expect(parseEuropeanDecimal('800,00')).toBe(800)
+    expect(parseEuropeanDecimal('800,00')).toBe(80000)
   })
 
   it('parses zero', () => {
@@ -94,6 +95,31 @@ describe('parseEuropeanDecimal', () => {
 
   it('throws on empty string', () => {
     expect(() => parseEuropeanDecimal('')).toThrow('Invalid number format')
+  })
+
+  it('avoids floating-point error: 0.10 x 3 = exact 30 cents', () => {
+    // With floats: 10 + 10 + 10 = 30 (exact in this case) but verify via parsing
+    const ten = parseEuropeanDecimal('0,10')
+    expect(ten).toBe(10)
+    expect(ten + ten + ten).toBe(30)
+  })
+})
+
+describe('formatAmount', () => {
+  it('formats positive cents as decimal string', () => {
+    expect(formatAmount(4599)).toBe('45.99')
+  })
+
+  it('formats negative cents as decimal string', () => {
+    expect(formatAmount(-4599)).toBe('-45.99')
+  })
+
+  it('formats zero', () => {
+    expect(formatAmount(0)).toBe('0.00')
+  })
+
+  it('formats whole euros', () => {
+    expect(formatAmount(80000)).toBe('800.00')
   })
 })
 
@@ -133,7 +159,7 @@ describe('TransactionSchema', () => {
     const transaction: Transaction = {
       id: 'file1-0',
       date: new Date('2024-05-10'),
-      amount: -64.39,
+      amount: -6439,
       title: 'ALEPA VUOSAARI',
       name: '',
       referenceNumber: '21354',
@@ -149,7 +175,7 @@ describe('TransactionSchema', () => {
     const transaction: Transaction = {
       id: 'file1-1',
       date: new Date('2024-05-10'),
-      amount: 800,
+      amount: 80000,
       title: 'ALEX ROWAN NGUYEN',
       name: 'ALEX ROWAN NGUYEN',
       referenceNumber: '',
@@ -168,7 +194,7 @@ describe('TransactionSchema', () => {
     const transaction = {
       id: '',
       date: new Date('2024-05-10'),
-      amount: -64.39,
+      amount: -6439,
       title: 'TEST',
       name: '',
       referenceNumber: '',
@@ -184,7 +210,7 @@ describe('TransactionSchema', () => {
     const transaction = {
       id: 'file1-0',
       date: 'not a date', // Should be Date object
-      amount: -64.39,
+      amount: -6439,
       title: 'TEST',
       name: '',
       referenceNumber: '',

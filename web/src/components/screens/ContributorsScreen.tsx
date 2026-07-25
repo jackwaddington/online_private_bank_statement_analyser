@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { Button } from '../common'
 import { useApp } from '../../context'
 import { findTopContributors, tagContributions } from '../../core/processors'
+import { formatAmount } from '../../core/types/transaction'
 
 export function ContributorsScreen() {
   const { state, dispatch } = useApp()
@@ -87,7 +88,7 @@ export function ContributorsScreen() {
               </ContributorStats>
             </ContributorInfo>
             <ContributorTotal>
-              €{contributor.total.toLocaleString('en', { minimumFractionDigits: 2 })}
+              €{formatAmount(contributor.total)}
             </ContributorTotal>
           </ContributorCard>
         ))}
@@ -103,14 +104,14 @@ export function ContributorsScreen() {
         <SummaryRow>
           <SummaryLabel>Selected contributors:</SummaryLabel>
           <SummaryValue>
-            €{selectedTotal.toLocaleString('en', { minimumFractionDigits: 2 })}
+            €{formatAmount(selectedTotal)}
           </SummaryValue>
         </SummaryRow>
         {otherTotal > 0 && (
           <SummaryRow $muted>
             <SummaryLabel>Other income:</SummaryLabel>
             <SummaryValue>
-              €{otherTotal.toLocaleString('en', { minimumFractionDigits: 2 })}
+              €{formatAmount(otherTotal)}
             </SummaryValue>
           </SummaryRow>
         )}

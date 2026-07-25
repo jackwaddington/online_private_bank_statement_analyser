@@ -57,7 +57,7 @@ function transactionsToNordeaCSV(transactions: Transaction[]): string {
 
   const rows = transactions.map(t => [
     formatNordeaDate(t.date),
-    formatEuropeanDecimal(t.amount),
+    formatEuropeanDecimal(t.amount / 100),
     '', // Sender - not stored
     '', // Recipient - not stored
     t.name,

@@ -16,7 +16,7 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
   return {
     id: 'test-0',
     date: new Date('2024-05-10'),
-    amount: -50, // Default to expense
+    amount: -5000, // Default to -€50 expense in cents
     title: 'TEST STORE',
     name: '',
     referenceNumber: 'REF123',
@@ -29,24 +29,24 @@ function createTransaction(overrides: Partial<Transaction> = {}): Transaction {
 describe('suggestCategories', () => {
   it('suggests titles ranked by total amount', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, title: 'LIDL' }),
-      createTransaction({ id: 'b', amount: -50, title: 'LIDL' }),  // Total: 150
-      createTransaction({ id: 'c', amount: -200, title: 'NETFLIX' }), // Total: 200
+      createTransaction({ id: 'a', amount: -10000, title: 'LIDL' }),
+      createTransaction({ id: 'b', amount: -5000, title: 'LIDL' }),  // Total: 15000
+      createTransaction({ id: 'c', amount: -20000, title: 'NETFLIX' }), // Total: 20000
     ]
 
     const suggestions = suggestCategories(transactions)
 
     expect(suggestions[0].title).toBe('NETFLIX')
-    expect(suggestions[0].totalAmount).toBe(200)
+    expect(suggestions[0].totalAmount).toBe(20000)
     expect(suggestions[1].title).toBe('LIDL')
-    expect(suggestions[1].totalAmount).toBe(150)
+    expect(suggestions[1].totalAmount).toBe(15000)
   })
 
   it('counts transactions per title', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -10, title: 'LIDL' }),
-      createTransaction({ id: 'b', amount: -10, title: 'LIDL' }),
-      createTransaction({ id: 'c', amount: -10, title: 'LIDL' }),
+      createTransaction({ id: 'a', amount: -1000, title: 'LIDL' }),
+      createTransaction({ id: 'b', amount: -1000, title: 'LIDL' }),
+      createTransaction({ id: 'c', amount: -1000, title: 'LIDL' }),
     ]
 
     const suggestions = suggestCategories(transactions)
@@ -56,9 +56,9 @@ describe('suggestCategories', () => {
 
   it('only includes uncategorized expenses', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, title: 'UNCATEGORIZED' }),
-      createTransaction({ id: 'b', amount: -100, title: 'CATEGORIZED', category: 'Groceries' }),
-      createTransaction({ id: 'c', amount: 100, title: 'INCOME' }), // Positive - ignored
+      createTransaction({ id: 'a', amount: -10000, title: 'UNCATEGORIZED' }),
+      createTransaction({ id: 'b', amount: -10000, title: 'CATEGORIZED', category: 'Groceries' }),
+      createTransaction({ id: 'c', amount: 10000, title: 'INCOME' }), // Positive - ignored
     ]
 
     const suggestions = suggestCategories(transactions)
@@ -74,7 +74,7 @@ describe('suggestCategories', () => {
 
   it('handles all transactions already categorized', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, category: 'Groceries' }),
+      createTransaction({ id: 'a', amount: -10000, category: 'Groceries' }),
     ]
 
     const suggestions = suggestCategories(transactions)
@@ -172,7 +172,7 @@ describe('applyCategories', () => {
 
   it('does not categorize income transactions', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 100, title: 'LIDL REFUND' }),
+      createTransaction({ id: 'a', amount: 10000, title: 'LIDL REFUND' }),
     ]
 
     const mappings: CategoryMapping[] = [
@@ -299,10 +299,10 @@ describe('createMapping', () => {
 describe('getCategorizationProgress', () => {
   it('calculates progress stats', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, category: 'Groceries' }),
-      createTransaction({ id: 'b', amount: -100, category: 'Entertainment' }),
-      createTransaction({ id: 'c', amount: -100 }), // Uncategorized
-      createTransaction({ id: 'd', amount: 100 }), // Income - ignored
+      createTransaction({ id: 'a', amount: -10000, category: 'Groceries' }),
+      createTransaction({ id: 'b', amount: -10000, category: 'Entertainment' }),
+      createTransaction({ id: 'c', amount: -10000 }), // Uncategorized
+      createTransaction({ id: 'd', amount: 10000 }), // Income - ignored
     ]
 
     const progress = getCategorizationProgress(transactions)
@@ -310,14 +310,14 @@ describe('getCategorizationProgress', () => {
     expect(progress.totalExpenses).toBe(3)
     expect(progress.categorized).toBe(2)
     expect(progress.uncategorized).toBe(1)
-    expect(progress.categorizedAmount).toBe(200)
-    expect(progress.uncategorizedAmount).toBe(100)
-    expect(progress.percentComplete).toBe(67) // 200/300 = 67%
+    expect(progress.categorizedAmount).toBe(20000)
+    expect(progress.uncategorizedAmount).toBe(10000)
+    expect(progress.percentComplete).toBe(67) // 20000/30000 = 67%
   })
 
   it('handles no expenses', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 100 }), // Income only
+      createTransaction({ id: 'a', amount: 10000 }), // Income only
     ]
 
     const progress = getCategorizationProgress(transactions)
@@ -328,7 +328,7 @@ describe('getCategorizationProgress', () => {
 
   it('handles all categorized', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, category: 'Groceries' }),
+      createTransaction({ id: 'a', amount: -10000, category: 'Groceries' }),
     ]
 
     const progress = getCategorizationProgress(transactions)
@@ -340,10 +340,10 @@ describe('getCategorizationProgress', () => {
 describe('getTransactionsByCategory', () => {
   it('groups expenses by category', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: -100, category: 'Groceries' }),
-      createTransaction({ id: 'b', amount: -50, category: 'Groceries' }),
-      createTransaction({ id: 'c', amount: -200, category: 'Entertainment' }),
-      createTransaction({ id: 'd', amount: -75 }), // Uncategorized
+      createTransaction({ id: 'a', amount: -10000, category: 'Groceries' }),
+      createTransaction({ id: 'b', amount: -5000, category: 'Groceries' }),
+      createTransaction({ id: 'c', amount: -20000, category: 'Entertainment' }),
+      createTransaction({ id: 'd', amount: -7500 }), // Uncategorized
     ]
 
     const grouped = getTransactionsByCategory(transactions)
@@ -355,7 +355,7 @@ describe('getTransactionsByCategory', () => {
 
   it('excludes income transactions', () => {
     const transactions: Transaction[] = [
-      createTransaction({ id: 'a', amount: 100, category: 'Income' }),
+      createTransaction({ id: 'a', amount: 10000, category: 'Income' }),
     ]
 
     const grouped = getTransactionsByCategory(transactions)
