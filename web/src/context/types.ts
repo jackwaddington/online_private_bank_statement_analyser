@@ -60,6 +60,7 @@ export type AppAction =
   | { type: 'REPORT_GENERATED'; data: ReportData }
   | { type: 'GO_TO_STEP'; step: AppStep }
   | { type: 'RESET' }
+  | { type: 'RESTORE'; state: AppState }
 
 /**
  * Initial state for the application.
